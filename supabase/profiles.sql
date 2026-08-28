@@ -12,6 +12,7 @@ for select
 to authenticated
 using (auth.uid() = id);
 
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
