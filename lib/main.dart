@@ -3,6 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'Screens/auth/login_page.dart';
 import 'Screens/auth/signup_page.dart';
+import 'Screens/home/home_page.dart';
+
+final _navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +26,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      navigatorKey: _navigatorKey,
       title: 'Rivals',
       theme: ThemeData(
         useMaterial3: true,
@@ -37,26 +41,36 @@ class MyApp extends StatelessWidget {
             email: email,
             password: password,
           );
+
+          _navigatorKey.currentState?.pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const HomePage(),
+            ),
+          );
         },
       ),
       routes: {
         '/signup': (_) => SignupPage(
           onSignUp: (email, password) async {
-            await Supabase.instance.client.auth.signUp(
+            final response = await Supabase.instance.client.auth.signUp(
               email: email,
               password: password,
             );
+
+            if (response.user == null) {
+              throw const AuthException('Could not create the account.');
+            }
+
+            if (response.session != null) {
+              _navigatorKey.currentState?.pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => const HomePage(),
+                ),
+              );
+            }
           },
         ),
       },
-      '/login': (_) => const LoginScreen(
-      onLogin: (email, password) async {
-      await Supabase.instance.client.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
-  },
-)
     );
   }
 }
