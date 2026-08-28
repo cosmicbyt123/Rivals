@@ -11,20 +11,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rivals/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('home dashboard renders', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Good Morning, Alex'), findsOneWidget);
+    expect(find.text('Daily Streak'), findsOneWidget);
+    expect(find.text('12 Days'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('PUSH DAY'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.text('PUSH DAY'), findsOneWidget);
+    expect(find.text('START WORKOUT  →'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Active Challenge'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Active Challenge'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Friends Training Now'), 300, scrollable: find.byType(Scrollable).first);
+    expect(find.text('Friends Training Now'), findsOneWidget);
+    expect(find.text('Rahul'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
   });
 }
