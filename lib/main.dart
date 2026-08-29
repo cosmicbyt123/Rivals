@@ -31,6 +31,9 @@ Future<void> main() async {     // Ensure that Flutter bindings are initialized 
   await Supabase.initialize(
     url: 'https://lyifcsjunlgwkarrzvra.supabase.co',
     publishableKey: 'sb_publishable_dUMVnRG0RSSPW4ZN2NUJmQ_ENZW9DeU',
+    authOptions: const FlutterAuthClientOptions(
+      persistSession: false,
+    ),
   );
 
   runApp(const MyApp());
@@ -67,12 +70,8 @@ class MyApp extends StatelessWidget {     // This widget is the root of your app
 
     await saveUserProfile(response.user!);
 
-    if (Supabase.instance.client.auth.currentSession != null) {
-      await Supabase.instance.client.auth.signOut();
-    }
-
     _navigatorKey.currentState?.pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => _loginPage()),
+      MaterialPageRoute(builder: (_) => const HomePage()),
       (route) => false,
     );
   }
