@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'auth/login_page.dart';
-import 'home/home_page.dart';
-
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -39,28 +36,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (!mounted) return;
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => LoginPage(
-          onLogin: (email, password) async {
-            final response = await Supabase.instance.client.auth.signInWithPassword(
-              email: email,
-              password: password,
-            );
-
-            if (response.user == null) {
-              throw Exception('Login failed. Please check your email and password.');
-            }
-
-            if (!mounted) return;
-
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const HomePage()),
-              (route) => false,
-            );
-          },
-        ),
-      ),
+    Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
+      '/login',
       (route) => false,
     );
   }

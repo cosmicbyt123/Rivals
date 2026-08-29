@@ -6,12 +6,12 @@ import 'Screens/auth/signup_page.dart';
 import 'Screens/home/home_page.dart';
 import 'Screens/profile_page.dart';
 
-const String supabaseUrl = 'https://lyifcsjunlgwkarrzvra.supabase.co';
+const String supabaseUrl = 'https://lyifcsjunlgwkarrzvra.supabase.co';    
 const String supabasePublishableKey = 'sb_publishable_dUMVnRG0RSSPW4ZN2NUJmQ_ENZW9DeU';
 
-final _navigatorKey = GlobalKey<NavigatorState>();
+final _navigatorKey = GlobalKey<NavigatorState>();    
 
-Future<void> saveUserProfile(User user) async {
+Future<void> saveUserProfile(User user) async {     //
   final email = user.email ?? '';
   final fullName = email.contains('@') ? email.split('@').first : 'User';
 
@@ -25,7 +25,7 @@ Future<void> saveUserProfile(User user) async {
   );
 }
 
-Future<void> main() async {
+Future<void> main() async {     // Ensure that Flutter bindings are initialized before using Supabase
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
@@ -36,34 +36,52 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatelessWidget {     // This widget is the root of your application.
   const MyApp({super.key});
 
-  Widget _loginPage() {
-    return LoginPage(
-      onLogin: (email, password) async {
-        try {
-          final response = await Supabase.instance.client.auth.signInWithPassword(
-            email: email,
-            password: password,
-          );
+  Future<void> _handleLogin(String email, String password) async {
+    final response = await Supabase.instance.client.auth.signInWithPassword(
+      email: email,
+      password: password,
+    );
 
-          if (response.user == null) {
-            throw Exception('Invalid credentials. Please try again.');
-          }
+    if (response.user == null) {
+      throw Exception('Invalid credentials. Please try again.');
+    }
 
-          _navigatorKey.currentState?.pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const HomePage()),
-            (route) => false,
-          );
-        } catch (e) {
-          rethrow;
-        }
-      },
+    _navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomePage()),
+      (route) => false,
     );
   }
 
-  @override
+  Future<void> _handleSignUp(String email, String password) async {
+    final response = await Supabase.instance.client.auth.signUp(
+      email: email,
+      password: password,
+    );
+
+    if (response.user == null) {
+      throw const AuthException('Could not create the account.');
+    }
+
+    await saveUserProfile(response.user!);
+
+    if (Supabase.instance.client.auth.currentSession != null) {
+      await Supabase.instance.client.auth.signOut();
+    }
+
+    _navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => _loginPage()),
+      (route) => false,
+    );
+  }
+
+  Widget _loginPage() {
+    return LoginPage(onLogin: _handleLogin);
+  }
+
+  @override     // Build the main application widget with routing and theming.
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -76,28 +94,21 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: _loginPage(),
+      home: StreamBuilder<AuthState>(
+        stream: Supabase.instance.client.auth.onAuthStateChange,
+        builder: (context, snapshot) {
+          final hasSession = Supabase.instance.client.auth.currentSession != null;
+
+          if (hasSession) {
+            return const HomePage();
+          }
+
+          return _loginPage();
+        },
+      ),
       routes: {
         '/login': (_) => _loginPage(),
-        '/signup': (_) => SignupPage(
-              onSignUp: (email, password) async {
-                final response = await Supabase.instance.client.auth.signUp(
-                  email: email,
-                  password: password,
-                );
-
-                if (response.user == null) {
-                  throw const AuthException('Could not create the account.');
-                }
-
-                await saveUserProfile(response.user!);
-
-                _navigatorKey.currentState?.pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const HomePage()),
-                  (route) => false,
-                );
-              },
-            ),
+        '/signup': (_) => SignupPage(onSignUp: _handleSignUp),
         '/profile': (_) => const ProfilePage(),
       },
     );
