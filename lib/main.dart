@@ -4,16 +4,33 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'Screens/auth/login_page.dart';
 import 'Screens/auth/signup_page.dart';
 import 'Screens/home/home_page.dart';
+import 'Screens/profile_page.dart';
+
+const String supabaseUrl = 'https://lyifcsjunlgwkarrzvra.supabase.co';
+const String supabasePublishableKey = 'sb_publishable_dUMVnRG0RSSPW4ZN2NUJmQ_ENZW9DeU';
 
 final _navigatorKey = GlobalKey<NavigatorState>();
+
+Future<void> saveUserProfile(User user) async {
+  final email = user.email ?? '';
+  final fullName = email.contains('@') ? email.split('@').first : 'User';
+
+  await Supabase.instance.client.from('profiles').upsert(
+    {
+      'id': user.id,
+      'email': email,
+      'full_name': fullName,
+    },
+    onConflict: 'id',
+  );
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Supabase.initialize(
     url: 'https://lyifcsjunlgwkarrzvra.supabase.co',
-    publishableKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5aWZjc2p1bmxnd2thcnJ6dnJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4NzA4NjAsImV4cCI6MjEwMjQ0Njg2MH0.3a4OpPVtliE-OHtI-liC-1LWMhBvEG_J-HB0ZVpF1Fc',
+    publishableKey: 'sb_publishable_dUMVnRG0RSSPW4ZN2NUJmQ_ENZW9DeU',
   );
 
   runApp(const MyApp());
@@ -21,6 +38,30 @@ Future<void> main() async {
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  Widget _loginPage() {
+    return LoginPage(
+      onLogin: (email, password) async {
+        try {
+          final response = await Supabase.instance.client.auth.signInWithPassword(
+            email: email,
+            password: password,
+          );
+
+          if (response.user == null) {
+            throw Exception('Invalid credentials. Please try again.');
+          }
+
+          _navigatorKey.currentState?.pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const HomePage()),
+            (route) => false,
+          );
+        } catch (e) {
+          rethrow;
+        }
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,41 +76,29 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: LoginPage(
-        onLogin: (email, password) async {
-          await Supabase.instance.client.auth.signInWithPassword(
-            email: email,
-            password: password,
-          );
-
-          _navigatorKey.currentState?.pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => const HomePage(),
-            ),
-          );
-        },
-      ),
+      home: _loginPage(),
       routes: {
+        '/login': (_) => _loginPage(),
         '/signup': (_) => SignupPage(
-          onSignUp: (email, password) async {
-            final response = await Supabase.instance.client.auth.signUp(
-              email: email,
-              password: password,
-            );
+              onSignUp: (email, password) async {
+                final response = await Supabase.instance.client.auth.signUp(
+                  email: email,
+                  password: password,
+                );
 
-            if (response.user == null) {
-              throw const AuthException('Could not create the account.');
-            }
+                if (response.user == null) {
+                  throw const AuthException('Could not create the account.');
+                }
 
-            if (response.session != null) {
-              _navigatorKey.currentState?.pushReplacement(
-                MaterialPageRoute(
-                  builder: (_) => const HomePage(),
-                ),
-              );
-            }
-          },
-        ),
+                await saveUserProfile(response.user!);
+
+                _navigatorKey.currentState?.pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const HomePage()),
+                  (route) => false,
+                );
+              },
+            ),
+        '/profile': (_) => const ProfilePage(),
       },
     );
   }

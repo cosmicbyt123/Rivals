@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../profile_page.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -21,7 +23,15 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: background,      
       bottomNavigationBar: _BottomBar(
         selectedIndex: _selectedTab,
-        onSelected: (value) => setState(() => _selectedTab = value),   
+        onSelected: (value) {
+          setState(() => _selectedTab = value);
+
+          if (value == 4) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProfilePage()),
+            );
+          }
+        },
       ),
       body: SafeArea(
         child: ListView(
@@ -74,7 +84,7 @@ class _StreakCard extends StatelessWidget {     // Streak card section of the ho
 
   @override
   Widget build(BuildContext context) => Container(
-        height: 470,
+        height: 180,
         padding: const EdgeInsets.fromLTRB(24, 25, 20, 22),   // Padding for the content inside the streak card
         decoration: BoxDecoration(color: _HomePageState.surface, borderRadius: BorderRadius.circular(12), boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8)]),
         child: Column(
