@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'Screens/auth/login_page.dart';
 import 'Screens/auth/signup_page.dart';
 import 'Screens/home/home_page.dart';
-import 'Screens/profile_page.dart';
+import 'Screens/profile/Profile_page.dart';
 
 const String supabaseUrl = 'https://lyifcsjunlgwkarrzvra.supabase.co';    
 const String supabasePublishableKey = 'sb_publishable_dUMVnRG0RSSPW4ZN2NUJmQ_ENZW9DeU';
