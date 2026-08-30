@@ -185,13 +185,8 @@ class _StreakCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: 180,
-    padding: const EdgeInsets.fromLTRB(
-      24,
-      25,
-      20,
-      22,
-    ), // Padding for the content inside the streak card
+    height: 300,
+    padding: const EdgeInsets.fromLTRB(24,25,20,22,), // Padding for the content inside the streak card
     decoration: BoxDecoration(
       color: _HomePageState.surface,
       borderRadius: BorderRadius.circular(12),
@@ -248,7 +243,7 @@ class _StreakCard extends StatelessWidget {
 
 enum _DayState { done, current, empty }
 
-class _Day extends StatelessWidget {
+class _Day extends StatelessWidget {    // Individual day widget used in the streak card section
   const _Day({required this.label, required this.state});
   final String label;
   final _DayState state;
@@ -292,7 +287,7 @@ class _Day extends StatelessWidget {
   }
 }
 
-class _TodayPlan extends StatelessWidget {
+class _TodayPlan extends StatelessWidget {      // Today's plan section of the home page
   // Today's plan section of the home page
   const _TodayPlan();
 
