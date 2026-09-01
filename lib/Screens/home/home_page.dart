@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../profile/Profile_page.dart';
+import '../../services/streak_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -152,7 +153,7 @@ class _Header extends StatelessWidget {
               ),
             ), // Subtext below the greeting
           ],
-        ),   
+        ),
       ),
       IconButton(
         onPressed: () {},
@@ -179,80 +180,189 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _StreakCard extends StatelessWidget {
+class _StreakCard extends StatefulWidget {
   // Streak card section of the home page
   const _StreakCard();
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 300,
-    padding: const EdgeInsets.fromLTRB(24,25,20,22,), // Padding for the content inside the streak card
-    decoration: BoxDecoration(
-      color: _HomePageState.surface,
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8)],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Text(
-              'Daily Streak',
-              style: TextStyle(
-                color: _HomePageState.muted,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF292929),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: const Text(
-                '12 Days',
-                style: TextStyle(
-                  color: _HomePageState.gold,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ), //
-        const Spacer(), // Space between the top row and the days of the week
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            _Day(label: 'M', state: _DayState.done),
-            _Day(label: 'T', state: _DayState.done),
-            _Day(label: 'W', state: _DayState.current),
-            _Day(label: 'T', state: _DayState.empty),
-            _Day(label: 'F', state: _DayState.empty),
-            _Day(label: 'S', state: _DayState.empty),
-            _Day(label: 'S', state: _DayState.empty),
-          ],
+  State<_StreakCard> createState() => _StreakCardState();
+}
+
+class _StreakCardState extends State<_StreakCard> {
+  late Future<StreakData> _streakDataFuture;
+  late Future<List<DayState>> _dayStatesFuture;
+  final StreakService _streakService = StreakService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStreakData();
+  }
+
+  void _loadStreakData() {
+    _streakDataFuture = _streakService.getUserStreakData();
+    _dayStatesFuture = _streakService.getWeekDayStates();
+  }
+
+  Future<void> _logActivity() async {
+    final success = await _streakService.logActivity(activityType: 'workout');
+    if (success) {
+      setState(() {
+        _loadStreakData();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Workout logged! Keep the streak going! 🔥'),
         ),
-      ],
-    ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<StreakData>(
+    future: _streakDataFuture,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return Container(
+          height: 300,
+          padding: const EdgeInsets.fromLTRB(24, 25, 20, 22),
+          decoration: BoxDecoration(
+            color: _HomePageState.surface,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8)],
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(color: _HomePageState.gold),
+          ),
+        );
+      }
+
+      final streakData =
+          snapshot.data ??
+          StreakData(
+            currentStreak: 0,
+            longestStreak: 0,
+            totalWorkouts: 0,
+            recentActivityDates: [],
+          );
+
+      return FutureBuilder<List<DayState>>(
+        future: _dayStatesFuture,
+        builder: (context, dayStatesSnapshot) {
+          final dayStates =
+              dayStatesSnapshot.data ?? List.filled(7, DayState.empty);
+          final dayLabels = _streakService.getWeekDayLabels();
+
+          return GestureDetector(
+            onTap: _logActivity,
+            child: Container(
+              height: 300,
+              padding: const EdgeInsets.fromLTRB(24, 25, 20, 22),
+              decoration: BoxDecoration(
+                color: _HomePageState.surface,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black54, blurRadius: 8),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Daily Streak',
+                        style: TextStyle(
+                          color: _HomePageState.muted,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 17,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF292929),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Text(
+                          '${streakData.currentStreak} ${streakData.currentStreak == 1 ? 'Day' : 'Days'}',
+                          style: const TextStyle(
+                            color: _HomePageState.gold,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Longest: ${streakData.longestStreak}',
+                        style: const TextStyle(
+                          color: _HomePageState.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        'Total: ${streakData.totalWorkouts}',
+                        style: const TextStyle(
+                          color: _HomePageState.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(
+                      7,
+                      (index) => _Day(
+                        label: dayLabels[index],
+                        state: dayStates[index],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Tap to log today\'s workout',
+                      style: TextStyle(
+                        color: _HomePageState.muted.withOpacity(0.6),
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
   );
 }
 
-enum _DayState { done, current, empty }
-
-class _Day extends StatelessWidget {    // Individual day widget used in the streak card section
+class _Day extends StatelessWidget {
   const _Day({required this.label, required this.state});
   final String label;
-  final _DayState state;
+  final DayState state;
 
   @override
   Widget build(BuildContext context) {
-    // Build the UI for each day in the streak card
-    final current = state == _DayState.current;
-    final done = state == _DayState.done;
+    final current = state == DayState.current;
+    final done = state == DayState.done;
     return Column(
       children: [
         Text(
@@ -287,7 +397,8 @@ class _Day extends StatelessWidget {    // Individual day widget used in the str
   }
 }
 
-class _TodayPlan extends StatelessWidget {      // Today's plan section of the home page
+class _TodayPlan extends StatelessWidget {
+  // Today's plan section of the home page
   // Today's plan section of the home page
   const _TodayPlan();
 
