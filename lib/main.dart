@@ -6,8 +6,7 @@ import 'Screens/auth/signup_page.dart';
 import 'Screens/home/home_page.dart';
 import 'Screens/profile/Profile_page.dart';
 
-const String supabaseUrl = 'https://lyifcsjunlgwkarrzvra.supabase.co';    
-const String supabasePublishableKey = 'sb_publishable_dUMVnRG0RSSPW4ZN2NUJmQ_ENZW9DeU';
+
 
 final _navigatorKey = GlobalKey<NavigatorState>();    
 
@@ -25,18 +24,13 @@ Future<void> saveUserProfile(User user) async {     //
   );
 }
 
-Future<void> main() async {     // Ensure that Flutter bindings are initialized before using Supabase
-  WidgetsFlutterBinding.ensureInitialized();
 
+Future<void> main() async {
   await Supabase.initialize(
     url: 'https://lyifcsjunlgwkarrzvra.supabase.co',
-    publishableKey: 'sb_publishable_dUMVnRG0RSSPW4ZN2NUJmQ_ENZW9DeU',
-    authOptions: const FlutterAuthClientOptions(
-      persistSession: false,
-    ),
+    anonKey: 'sb_publishable_N-3Mi3r91ZAUnqdNrChxTA_sZhdLiv7',
   );
-
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {     // This widget is the root of your application.

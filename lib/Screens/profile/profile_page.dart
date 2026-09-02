@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ProfilePage extends StatefulWidget {
+class ProfilePage extends StatefulWidget {    // A widget that displays a user's profile
   const ProfilePage({super.key});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage> {    // A stateful widget that manages the state of the ProfilePage
   static const gold = Color(0xFFFFC83D);
   static const background = Color(0xFF101010);
   static const surface = Color(0xFF191919);
@@ -16,7 +16,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   String get displayName {
     final user = Supabase.instance.client.auth.currentUser;
-    final email = user?.email ?? 'Rivals User';
+    final email = user?.email ?? 'Rivals User';   
     return email.contains('@') ? email.split('@').first : email;
   }
 
@@ -43,7 +43,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) {    
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
@@ -136,7 +136,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-class _ProfileTile extends StatelessWidget {
+class _ProfileTile extends StatelessWidget {    //
   const _ProfileTile({
     required this.icon,
     required this.title,
@@ -148,7 +148,7 @@ class _ProfileTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) {    
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(

@@ -48,7 +48,7 @@ class _HomePageState extends State<HomePage> {
             .eq('id', user.id)
             .single();
         setState(() {
-          _UserName = response['full_name'] ?? 'User';
+          _UserName = response['full_name'] ?? 'Rivals User';
           _avatarUrl = response['avatar_url'] ?? '';
         });
       } catch (e) {
@@ -81,10 +81,10 @@ class _HomePageState extends State<HomePage> {
             18,
             18,
           ), // Padding for the content inside the ListView
-          children: const [
+          children: [
             _Header(
               greeting: 'Good Morning',
-              userName: 'Wasim',
+              userName: _UserName,
               avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&q=80',
               onNotificationTap: null,
               onNotificationCount: null,
@@ -189,7 +189,7 @@ class _StreakCard extends StatefulWidget {
 }
 
 class _StreakCardState extends State<_StreakCard> {
-  late Future<StreakData> _streakDataFuture;
+  late Future<dynamic> _streakDataFuture;
   late Future<List<DayState>> _dayStatesFuture;
   final StreakService _streakService = StreakService();
 
@@ -200,26 +200,31 @@ class _StreakCardState extends State<_StreakCard> {
   }
 
   void _loadStreakData() {
-    _streakDataFuture = _streakService.getUserStreakData();
-    _dayStatesFuture = _streakService.getWeekDayStates();
+    _streakDataFuture = _streakService.getStreak();
+    _dayStatesFuture = _loadWeekDayStates();
+  }
+
+  Future<List<DayState>> _loadWeekDayStates() async {
+    final streakData = await _streakService.getStreak();
+    final activityDates = ((streakData as dynamic).recentActivityDates as Iterable?)
+            ?.map((date) => date is DateTime ? date : DateTime.parse(date.toString()))
+            .toSet() ??
+        <DateTime>{};
+    final today = DateTime.now();
+    final startOfToday = DateTime(today.year, today.month, today.day);
+
+    return List.generate(7, (index) {
+      final date = startOfToday.subtract(Duration(days: 6 - index));
+      if (date == startOfToday) return DayState.current;
+      return activityDates.contains(date) ? DayState.done : DayState.empty;
+    });
   }
 
   Future<void> _logActivity() async {
-    final success = await _streakService.logActivity(activityType: 'workout');
-    if (success) {
-      setState(() {
-        _loadStreakData();
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Workout logged! Keep the streak going! 🔥'),
-        ),
-      );
-    }
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<StreakData>(
+  Widget build(BuildContext context) => FutureBuilder<dynamic>(
     future: _streakDataFuture,
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -239,7 +244,7 @@ class _StreakCardState extends State<_StreakCard> {
 
       final streakData =
           snapshot.data ??
-          StreakData(
+          _StreakDataFallback(
             currentStreak: 0,
             longestStreak: 0,
             totalWorkouts: 0,
@@ -353,6 +358,22 @@ class _StreakCardState extends State<_StreakCard> {
     },
   );
 }
+
+class _StreakDataFallback {
+  const _StreakDataFallback({
+    required this.currentStreak,
+    required this.longestStreak,
+    required this.totalWorkouts,
+    required this.recentActivityDates,
+  });
+
+  final int currentStreak;
+  final int longestStreak;
+  final int totalWorkouts;
+  final List<dynamic> recentActivityDates;
+}
+
+enum DayState { empty, current, done }
 
 class _Day extends StatelessWidget {
   const _Day({required this.label, required this.state});
