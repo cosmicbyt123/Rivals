@@ -418,94 +418,497 @@ class _Day extends StatelessWidget {
   }
 }
 
-class _TodayPlan extends StatelessWidget {
-  // Today's plan section of the home page
+class _TodayPlan extends StatefulWidget {
   // Today's plan section of the home page
   const _TodayPlan();
 
   @override
-  Widget build(BuildContext context) => Container(
-    // Container for today's plan with padding and decoration
-    padding: const EdgeInsets.fromLTRB(32, 28, 32, 32),
-    decoration: BoxDecoration(
-      color: _HomePageState.gold,
-      borderRadius: BorderRadius.circular(10),
-      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8)],
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-          decoration: BoxDecoration(
-            color: const Color(0x22FFFFFF),
-            borderRadius: BorderRadius.circular(15),
+  State<_TodayPlan> createState() => _TodayPlanState();
+}
+
+class _TodayPlanState extends State<_TodayPlan> {
+  bool _isExpanded = false;
+  bool _isCompleted = false;
+
+  final List<Map<String, String>> _exercises = const [
+    {'name': 'Barbell Bench Press', 'detail': '4 sets × 8-10 reps'},
+    {'name': 'Incline Dumbbell Press', 'detail': '3 sets × 10-12 reps'},
+    {'name': 'Overhead Shoulder Press', 'detail': '4 sets × 8 reps'},
+    {'name': 'Cable Lateral Raises', 'detail': '3 sets × 12-15 reps'},
+    {'name': 'Tricep Rope Pushdowns', 'detail': '4 sets × 12 reps'},
+    {'name': 'Parallel Bar Dips', 'detail': '3 sets to failure'},
+    {'name': 'Chest Flyes', 'detail': '3 sets × 12 reps'},
+  ];
+
+  void _showWorkoutDetailsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF191919),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, scrollController) => Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: ListView(
+            controller: scrollController,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'PUSH DAY WORKOUT',
+                    style: TextStyle(
+                      color: _HomePageState.gold,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: _HomePageState.muted),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Focus: Chest, Shoulders, Triceps • 7 Exercises • 55 min',
+                style: TextStyle(color: _HomePageState.muted, fontSize: 13),
+              ),
+              const Divider(color: Color(0xFF292929), height: 30),
+              ...List.generate(_exercises.length, (index) {
+                final ex = _exercises[index];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF222222),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF2A2A2A)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: _HomePageState.gold.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${index + 1}',
+                            style: const TextStyle(
+                              color: _HomePageState.gold,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ex['name']!,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              ex['detail']!,
+                              style: const TextStyle(
+                                color: _HomePageState.muted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.check_circle_outline,
+                        color: _HomePageState.muted,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  setState(() => _isCompleted = !_isCompleted);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _isCompleted
+                            ? '🎉 Push Day marked as Completed!'
+                            : 'Workout reset to ready state.',
+                      ),
+                      backgroundColor: const Color(0xFF2A2A2A),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _HomePageState.gold,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  _isCompleted ? 'MARK AS INCOMPLETE' : 'START WORKOUT NOW',
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
           ),
-          child: const Text(
-            '⚒  TODAY\'S PLAN',
-            style: TextStyle(
-              color: Color(0xFF4B3900),
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+      decoration: BoxDecoration(
+        color: _HomePageState.gold,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black54,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0x28FFFFFF),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '⚒  TODAY\'S PLAN',
+                      style: TextStyle(
+                        color: Color(0xFF4B3900),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: _isCompleted
+                      ? const Color(0xFF1E5B22)
+                      : const Color(0xFF493500),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _isCompleted ? '✓ COMPLETED' : 'READY',
+                  style: TextStyle(
+                    color: _isCompleted
+                        ? const Color(0xFF8FF596)
+                        : _HomePageState.gold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Workout Title & Muscle Badges
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isCompleted ? 'PUSH DAY (DONE)' : 'PUSH DAY',
+                      style: const TextStyle(
+                        color: Color(0xFF352700),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Chest, Shoulders & Triceps',
+                      style: TextStyle(
+                        color: Color(0xFF5B4600),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() => _isCompleted = !_isCompleted);
+                },
+                tooltip: 'Toggle completed state',
+                icon: Icon(
+                  _isCompleted
+                      ? Icons.check_circle
+                      : Icons.radio_button_unchecked,
+                  color: const Color(0xFF493500),
+                  size: 28,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Muscle Chips
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: const [
+              _MuscleChip(label: 'Chest'),
+              _MuscleChip(label: 'Shoulders'),
+              _MuscleChip(label: 'Triceps'),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Stats Pills Row
+          Row(
+            children: [
+              const Expanded(
+                child: _PlanPill(icon: Icons.access_time, label: '55 min'),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: _PlanPill(
+                  icon: Icons.format_list_bulleted,
+                  label: '7 Exercises',
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: _PlanPill(
+                  icon: Icons.local_fire_department_outlined,
+                  label: '~450 kcal',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+
+          // Expandable Exercise Preview Toggle
+          GestureDetector(
+            onTap: () {
+              setState(() => _isExpanded = !_isExpanded);
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0x18493500),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.fitness_center,
+                    size: 16,
+                    color: Color(0xFF493500),
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Workout Breakdown',
+                    style: TextStyle(
+                      color: Color(0xFF493500),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: const Color(0xFF493500),
+                    size: 20,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'PUSH DAY',
-          style: TextStyle(
-            color: Color(0xFF352700),
-            fontSize: 23,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 7),
-        const Text(
-          'Chest, Shoulders, Triceps',
-          style: TextStyle(color: Color(0xFF5B4600), fontSize: 16),
-        ),
-        const SizedBox(height: 30),
-        Row(
-          children: [
-            Expanded(
-              child: _PlanPill(icon: Icons.access_time, label: '55 min'),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _PlanPill(
-                icon: Icons.format_list_bulleted,
-                label: '7 Exercises',
+
+          // Expanded Exercise Items
+          if (_isExpanded) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0x15000000),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: List.generate(_exercises.length, (index) {
+                  final ex = _exercises[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF493500),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                color: _HomePageState.gold,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            ex['name']!,
+                            style: const TextStyle(
+                              color: Color(0xFF352700),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          ex['detail']!,
+                          style: const TextStyle(
+                            color: Color(0xFF5B4600),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 30),
-        SizedBox(
-          width: double.infinity,
-          height: 61,
-          child: ElevatedButton.icon(
-            onPressed: () {},
-            icon: const SizedBox.shrink(),
-            label: const Text(
-              'START WORKOUT  →',
-              style: TextStyle(
+
+          const SizedBox(height: 22),
+
+          // Start / Action Button
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton.icon(
+              onPressed: () => _showWorkoutDetailsModal(context),
+              icon: Icon(
+                _isCompleted ? Icons.replay : Icons.play_arrow_rounded,
                 color: _HomePageState.gold,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
+                size: 22,
               ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF493500),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(13),
+              label: Text(
+                _isCompleted ? 'VIEW / EDIT WORKOUT' : 'START WORKOUT  →',
+                style: const TextStyle(
+                  color: _HomePageState.gold,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                ),
               ),
-              elevation: 0,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF493500),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                elevation: 0,
+              ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MuscleChip extends StatelessWidget {
+  const _MuscleChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0x22493500),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0x33493500)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF493500),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _PlanPill extends StatelessWidget {
@@ -516,27 +919,30 @@ class _PlanPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(vertical: 11),
-    decoration: BoxDecoration(
-      color: const Color(0x1E8A6800),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: const Color(0xFF493500), size: 21),
-        const SizedBox(width: 7),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF493500),
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        decoration: BoxDecoration(
+          color: const Color(0x1E8A6800),
+          borderRadius: BorderRadius.circular(8),
         ),
-      ],
-    ),
-  );
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: const Color(0xFF493500), size: 17),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF493500),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
 }
 
 class _StatsRow extends StatelessWidget {
