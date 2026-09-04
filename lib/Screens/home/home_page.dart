@@ -192,6 +192,7 @@ class _StreakCardState extends State<_StreakCard> {
   late Future<dynamic> _streakDataFuture;
   late Future<List<DayState>> _dayStatesFuture;
   final StreakService _streakService = StreakService();
+  bool _isLogging = false;
 
   @override
   void initState() {
@@ -215,12 +216,125 @@ class _StreakCardState extends State<_StreakCard> {
 
     return List.generate(7, (index) {
       final date = startOfToday.subtract(Duration(days: 6 - index));
-      if (date == startOfToday) return DayState.current;
+      if (date == startOfToday) {
+        return activityDates.contains(date) ? DayState.done : DayState.current;
+      }
       return activityDates.contains(date) ? DayState.done : DayState.empty;
     });
   }
 
   Future<void> _logActivity() async {
+    if (_isLogging) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF191919),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(22.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                const Icon(Icons.whatshot, color: Colors.orangeAccent, size: 26),
+                const SizedBox(width: 10),
+                const Text(
+                  'LOG TODAY\'S STREAK',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: _HomePageState.muted),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Select completed activity to maintain your streak fire:',
+              style: TextStyle(color: _HomePageState.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 18),
+            const _ActivityOptionTile(
+              icon: Icons.fitness_center,
+              title: 'Gym & Strength Session',
+              duration: '45-60 min • High XP',
+            ),
+            const SizedBox(height: 8),
+            const _ActivityOptionTile(
+              icon: Icons.directions_run,
+              title: 'Outdoor Run / Cardio',
+              duration: '30-45 min • High Calorie',
+            ),
+            const SizedBox(height: 8),
+            const _ActivityOptionTile(
+              icon: Icons.self_improvement,
+              title: 'Mobility & Recovery',
+              duration: '20-30 min • Active Rest',
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  Navigator.of(ctx).pop();
+                  setState(() => _isLogging = true);
+                  try {
+                    await _streakService.recordActivity(activityType: 'Workout');
+                  } catch (_) {}
+                  if (mounted) {
+                    setState(() {
+                      _isLogging = false;
+                      _loadStreakData();
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('🔥 Boom! Today\'s Activity Logged! Streak Extended!'),
+                        backgroundColor: Color(0xFF2A2A2A),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.local_fire_department, color: Colors.black),
+                label: const Text(
+                  'CLAIM & LOG WORKOUT',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _HomePageState.gold,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -229,11 +343,11 @@ class _StreakCardState extends State<_StreakCard> {
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
         return Container(
-          height: 300,
+          height: 290,
           padding: const EdgeInsets.fromLTRB(24, 25, 20, 22),
           decoration: BoxDecoration(
             color: _HomePageState.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 8)],
           ),
           child: const Center(
@@ -261,11 +375,12 @@ class _StreakCardState extends State<_StreakCard> {
           return GestureDetector(
             onTap: _logActivity,
             child: Container(
-              height: 300,
-              padding: const EdgeInsets.fromLTRB(24, 25, 20, 22),
+              height: 290,
+              padding: const EdgeInsets.fromLTRB(24, 22, 20, 22),
               decoration: BoxDecoration(
                 color: _HomePageState.surface,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF262626)),
                 boxShadow: const [
                   BoxShadow(color: Colors.black54, blurRadius: 8),
                 ],
@@ -275,31 +390,76 @@ class _StreakCardState extends State<_StreakCard> {
                 children: [
                   Row(
                     children: [
+                      const Icon(
+                        Icons.local_fire_department,
+                        color: Colors.orangeAccent,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 6),
                       const Text(
                         'Daily Streak',
                         style: TextStyle(
-                          color: _HomePageState.muted,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF252115),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _HomePageState.gold.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '🧊 1 Freeze',
+                              style: TextStyle(
+                                color: _HomePageState.gold,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 17,
-                          vertical: 8,
+                          horizontal: 14,
+                          vertical: 7,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF292929),
+                          color: const Color(0xFF2B2513),
                           borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Text(
-                          '${streakData.currentStreak} ${streakData.currentStreak == 1 ? 'Day' : 'Days'}',
-                          style: const TextStyle(
-                            color: _HomePageState.gold,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
+                          border: Border.all(
+                            color: _HomePageState.gold.withValues(alpha: 0.4),
                           ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              '🔥 ',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            Text(
+                              '${streakData.currentStreak} ${streakData.currentStreak == 1 ? 'Day' : 'Days'}',
+                              style: const TextStyle(
+                                color: _HomePageState.gold,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -309,7 +469,7 @@ class _StreakCardState extends State<_StreakCard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Longest: ${streakData.longestStreak}',
+                        '🏆 Longest: ${streakData.longestStreak} Days',
                         style: const TextStyle(
                           color: _HomePageState.muted,
                           fontSize: 12,
@@ -317,7 +477,7 @@ class _StreakCardState extends State<_StreakCard> {
                         ),
                       ),
                       Text(
-                        'Total: ${streakData.totalWorkouts}',
+                        '💪 Total: ${streakData.totalWorkouts} Workouts',
                         style: const TextStyle(
                           color: _HomePageState.muted,
                           fontSize: 12,
@@ -340,13 +500,24 @@ class _StreakCardState extends State<_StreakCard> {
                   const SizedBox(height: 16),
                   Align(
                     alignment: Alignment.center,
-                    child: Text(
-                      'Tap to log today\'s workout',
-                      style: TextStyle(
-                        color: _HomePageState.muted.withOpacity(0.6),
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.touch_app_outlined,
+                          size: 14,
+                          color: _HomePageState.gold,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Tap card to log today\'s workout & extend streak',
+                          style: TextStyle(
+                            color: _HomePageState.muted.withValues(alpha: 0.8),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -357,6 +528,70 @@ class _StreakCardState extends State<_StreakCard> {
       );
     },
   );
+}
+
+class _ActivityOptionTile extends StatelessWidget {
+  const _ActivityOptionTile({
+    required this.icon,
+    required this.title,
+    required this.duration,
+  });
+
+  final IconData icon;
+  final String title;
+  final String duration;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF222222),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2A2A2A)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              color: Color(0xFF2C2615),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: _HomePageState.gold, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  duration,
+                  style: const TextStyle(
+                    color: _HomePageState.muted,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right,
+            color: _HomePageState.muted,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _StreakDataFallback {
@@ -388,29 +623,39 @@ class _Day extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: _HomePageState.muted,
+          style: TextStyle(
+            color: current ? _HomePageState.gold : _HomePageState.muted,
             fontSize: 12,
-            fontWeight: FontWeight.w700,
+            fontWeight: current ? FontWeight.w900 : FontWeight.w700,
           ),
         ),
         const SizedBox(height: 8),
         Container(
-          width: 34,
-          height: 34,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: current
                 ? _HomePageState.gold
                 : done
                 ? const Color(0xFF3C361D)
-                : const Color(0xFF111111),
+                : const Color(0xFF141414),
             shape: BoxShape.circle,
+            border: Border.all(
+              color: current
+                  ? _HomePageState.gold
+                  : done
+                  ? const Color(0xFF5E5224)
+                  : const Color(0xFF242424),
+              width: current ? 2 : 1,
+            ),
             boxShadow: current
-                ? const [BoxShadow(color: Color(0x66FFC83D), blurRadius: 8)]
+                ? const [BoxShadow(color: Color(0x88FFC83D), blurRadius: 10)]
                 : null,
           ),
           child: done
-              ? const Icon(Icons.check, color: _HomePageState.gold, size: 17)
+              ? const Icon(Icons.check, color: _HomePageState.gold, size: 18)
+              : current
+              ? const Icon(Icons.local_fire_department, color: Colors.black, size: 18)
               : null,
         ),
       ],
@@ -439,6 +684,51 @@ class _TodayPlanState extends State<_TodayPlan> {
     {'name': 'Parallel Bar Dips', 'detail': '3 sets to failure'},
     {'name': 'Chest Flyes', 'detail': '3 sets × 12 reps'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTodayPlanFromSupabase();
+  }
+
+  Future<void> _loadTodayPlanFromSupabase() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      try {
+        final todayStr = DateTime.now().toIso8601String().split('T').first;
+        final response = await Supabase.instance.client
+            .from('workout_sessions')
+            .select()
+            .eq('user_id', user.id)
+            .gte('completed_at', '$todayStr T00:00:00')
+            .limit(1);
+        if (response.isNotEmpty) {
+          setState(() {
+            _isCompleted = true;
+          });
+        }
+      } catch (_) {
+        // Fallback gracefully
+      }
+    }
+  }
+
+  Future<void> _toggleWorkoutCompletion() async {
+    setState(() => _isCompleted = !_isCompleted);
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null && _isCompleted) {
+      try {
+        await Supabase.instance.client.from('workout_sessions').insert({
+          'user_id': user.id,
+          'status': 'completed',
+          'workout_name': 'Push Day',
+          'completed_at': DateTime.now().toIso8601String(),
+        });
+      } catch (_) {
+        // Ignored for offline/fallback
+      }
+    }
+  }
 
   void _showWorkoutDetailsModal(BuildContext context) {
     showModalBottomSheet(
@@ -558,7 +848,7 @@ class _TodayPlanState extends State<_TodayPlan> {
               ElevatedButton(
                 onPressed: () {
                   Navigator.of(ctx).pop();
-                  setState(() => _isCompleted = !_isCompleted);
+                  _toggleWorkoutCompletion();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -945,293 +1235,1443 @@ class _PlanPill extends StatelessWidget {
       );
 }
 
-class _StatsRow extends StatelessWidget {
+class _StatsRow extends StatefulWidget {
   // Stats row section of the home page
   const _StatsRow();
 
   @override
-  Widget build(BuildContext context) => const Row(
-    children: [
-      // Row containing three stats: KCAL, VOLUME (KG), and XP
-      Expanded(
-        child: _Stat(
-          icon: Icons.local_fire_department_outlined,
-          value: '620',
-          label: 'KCAL',
-        ),
-      ),
-      SizedBox(width: 10),
-      Expanded(
-        child: _Stat(
-          icon: Icons.shopping_bag_outlined,
-          value: '8.4k',
-          label: 'VOLUME\n(KG)',
-        ),
-      ),
-      SizedBox(width: 10),
-      Expanded(
-        child: _Stat(
-          icon: Icons.star_border,
-          value: '+240',
-          label: 'XP',
-          goldValue: true,
-        ),
-      ),
-    ],
-  );
+  State<_StatsRow> createState() => _StatsRowState();
 }
 
-class _Stat extends StatelessWidget {
-  // Individual stat widget used in the stats row section
-  const _Stat({
-    required this.icon,
-    required this.value,
-    required this.label,
-    this.goldValue = false,
-  });
-  final IconData icon;
-  final String value;
-  final String label;
-  final bool goldValue;
+class _StatsRowState extends State<_StatsRow> {
+  String _kcalValue = '620';
+  String _volumeValue = '8.4k';
+  String _xpValue = '+240';
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 132,
-    padding: const EdgeInsets.only(top: 18),
-    decoration: BoxDecoration(
-      color: _HomePageState.surface,
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Column(
-      children: [
-        Icon(icon, color: _HomePageState.gold, size: 22),
-        const SizedBox(height: 10),
-        Text(
-          value,
-          style: TextStyle(
-            color: goldValue ? _HomePageState.gold : Colors.white,
-            fontSize: 30,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        const SizedBox(height: 1),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: _HomePageState.muted,
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            height: 1.1,
-          ),
-        ),
-      ],
-    ),
-  );
-}
+  void initState() {
+    super.initState();
+    _loadUserStats();
+  }
 
-class _ChallengeCard extends StatelessWidget {
-  // Active challenge card section of the home page
-  const _ChallengeCard();
+  Future<void> _loadUserStats() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      try {
+        final response = await Supabase.instance.client
+            .from('profiles')
+            .select('xp, total_volume, calories_burned')
+            .eq('id', user.id)
+            .maybeSingle();
 
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(23, 24, 23, 22),
-    decoration: BoxDecoration(
-      color: _HomePageState.surface,
-      borderRadius: BorderRadius.circular(11),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          children: [
-            Icon(Icons.fitness_center, color: _HomePageState.muted, size: 15),
-            SizedBox(width: 7),
-            Text(
-              'Active Challenge',
-              style: TextStyle(
-                color: _HomePageState.muted,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
+        if (response != null) {
+          setState(() {
+            if (response['calories_burned'] != null) {
+              _kcalValue = '${response['calories_burned']}';
+            }
+            if (response['total_volume'] != null) {
+              _volumeValue = '${response['total_volume']}k';
+            }
+            if (response['xp'] != null) {
+              _xpValue = '+${response['xp']}';
+            }
+          });
+        }
+      } catch (_) {
+        // Fallback gracefully
+      }
+    }
+  }
+
+  void _showStatDetails(BuildContext context, String type) {
+    String title = '';
+    String subtitle = '';
+    IconData headerIcon = Icons.auto_graph;
+    List<Widget> contentWidgets = [];
+
+    if (type == 'KCAL') {
+      title = 'CALORIES BURNED';
+      subtitle = 'Daily Energy Expenditure';
+      headerIcon = Icons.local_fire_department;
+      contentWidgets = [
+        _StatProgressTile(
+          label: 'Daily Target Progress',
+          value: '$_kcalValue / 750 kcal',
+          progress: 0.82,
+          color: Colors.orangeAccent,
         ),
-        const SizedBox(height: 23),
+        const SizedBox(height: 16),
         const Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '100 Push-ups',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                  ),
-                  SizedBox(height: 3),
-                  Text(
-                    'vs Rahul',
-                    style: TextStyle(
-                      color: _HomePageState.gold,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+              child: _DetailMetricCard(
+                title: 'Active Workouts',
+                value: '480 kcal',
+                subtext: '55 min Push Session',
               ),
             ),
-            Text(
-              '72',
-              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
-            ),
-            Padding(
-              padding: EdgeInsets.only(bottom: 4),
-              child: Text(
-                ' vs 64',
-                style: TextStyle(
-                  color: _HomePageState.muted,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
+            SizedBox(width: 10),
+            Expanded(
+              child: _DetailMetricCard(
+                title: 'Resting & Steps',
+                value: '140 kcal',
+                subtext: '4,200 Steps',
               ),
             ),
           ],
         ),
-        const SizedBox(height: 17),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: const LinearProgressIndicator(
-            value: .72,
-            minHeight: 13,
-            backgroundColor: Color(0xFF302E29),
-            valueColor: AlwaysStoppedAnimation(_HomePageState.gold),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF222222),
+            borderRadius: BorderRadius.circular(10),
           ),
-        ),
-        const SizedBox(height: 8),
-        const Align(
-          alignment: Alignment.centerRight,
-          child: Text(
-            '28 reps remaining',
-            style: TextStyle(color: _HomePageState.muted, fontSize: 11),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _FriendsSection extends StatelessWidget {
-  // Friends training now section of the home page
-  const _FriendsSection();
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Padding(
-        padding: EdgeInsets.only(left: 8),
-        child: Text(
-          'Friends Training Now',
-          style: TextStyle(
-            color: _HomePageState.muted,
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
-      const SizedBox(height: 17),
-      Row(
-        children: const [
-          Expanded(
-            child: _FriendCard(
-              name: 'Rahul',
-              workout: 'Leg Day',
-              url: 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=100&q=80',
-            ),
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            child: _FriendCard(
-              name: 'Arjun',
-              workout: 'Cardio',
-              url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80',
-            ),
-          ),
-        ],
-      ),
-    ],
-  );
-}
-
-class _FriendCard extends StatelessWidget {
-  // Individual friend card widget used in the friends training now section
-  const _FriendCard({
-    required this.name,
-    required this.workout,
-    required this.url,
-  });
-  final String name;
-  final String workout;
-  final String url;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 76,
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: _HomePageState.surface,
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Row(
-      children: [
-        Stack(
-          children: [
-            _Photo(url: url, size: 36),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF19D65A),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: _HomePageState.surface, width: 1),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: const Row(
             children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                workout,
-                style: const TextStyle(
-                  color: _HomePageState.gold,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+              Icon(Icons.trending_up, color: Colors.greenAccent, size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '🔥 +14% higher calorie burn than last Friday!',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ),
             ],
           ),
         ),
+      ];
+    } else if (type == 'VOLUME') {
+      title = 'WORKOUT VOLUME';
+      subtitle = 'Total Weight Moved Today';
+      headerIcon = Icons.fitness_center;
+      contentWidgets = [
+        _StatProgressTile(
+          label: 'Target Volume Benchmark',
+          value: '$_volumeValue kg',
+          progress: 0.95,
+          color: _HomePageState.gold,
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Volume by Movement',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 10),
+        const _VolumeBreakdownRow(exercise: 'Barbell Bench Press', weight: '3,400 kg', percent: '40%'),
+        const _VolumeBreakdownRow(exercise: 'Overhead Press', weight: '2,800 kg', percent: '33%'),
+        const _VolumeBreakdownRow(exercise: 'Dips & Cable Iso', weight: '2,200 kg', percent: '27%'),
+      ];
+    } else {
+      title = 'EXPERIENCE (XP)';
+      subtitle = 'Level & Rewards Progression';
+      headerIcon = Icons.star;
+      contentWidgets = [
+        const _StatProgressTile(
+          label: 'Level 14 → Level 15 Progress',
+          value: '3,740 / 4,000 XP',
+          progress: 0.935,
+          color: _HomePageState.gold,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF222222),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _HomePageState.gold.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Today\'s Gain', style: TextStyle(color: _HomePageState.muted, fontSize: 11)),
+                    const SizedBox(height: 4),
+                    Text(_xpValue, style: const TextStyle(color: _HomePageState.gold, fontSize: 20, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF222222),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF2A2A2A)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Streak Multiplier', style: TextStyle(color: _HomePageState.muted, fontSize: 11)),
+                    SizedBox(height: 4),
+                    Text('⚡ 1.5x Boost', style: TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ];
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF191919),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(22.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Icon(headerIcon, color: _HomePageState.gold, size: 24),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: _HomePageState.muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: _HomePageState.muted),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ],
+            ),
+            const Divider(color: Color(0xFF292929), height: 26),
+            ...contentWidgets,
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Expanded(
+            child: _Stat(
+              icon: Icons.local_fire_department_outlined,
+              value: _kcalValue,
+              label: 'KCAL',
+              trend: '↑ 14%',
+              onTap: () => _showStatDetails(context, 'KCAL'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _Stat(
+              icon: Icons.fitness_center,
+              value: _volumeValue,
+              label: 'VOLUME\n(KG)',
+              trend: '↑ 8%',
+              onTap: () => _showStatDetails(context, 'VOLUME'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _Stat(
+              icon: Icons.star_border,
+              value: _xpValue,
+              label: 'XP',
+              goldValue: true,
+              trend: '⚡ 1.5x',
+              highlightBorder: true,
+              onTap: () => _showStatDetails(context, 'XP'),
+            ),
+          ),
+        ],
+      );
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({
+    required this.icon,
+    required this.value,
+    required this.label,
+    this.goldValue = false,
+    this.trend,
+    this.highlightBorder = false,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+  final bool goldValue;
+  final String? trend;
+  final bool highlightBorder;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            height: 138,
+            padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
+            decoration: BoxDecoration(
+              color: _HomePageState.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: highlightBorder
+                    ? _HomePageState.gold.withValues(alpha: 0.4)
+                    : const Color(0xFF262626),
+                width: highlightBorder ? 1.2 : 1.0,
+              ),
+              boxShadow: highlightBorder
+                  ? [
+                      BoxShadow(
+                        color: _HomePageState.gold.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Stack(
+              children: [
+                if (trend != null)
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: goldValue
+                            ? const Color(0xFF382F10)
+                            : const Color(0xFF222C23),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        trend!,
+                        style: TextStyle(
+                          color: goldValue
+                              ? _HomePageState.gold
+                              : const Color(0xFF8FF596),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, color: _HomePageState.gold, size: 22),
+                    const SizedBox(height: 8),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        value,
+                        style: TextStyle(
+                          color: goldValue ? _HomePageState.gold : Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: _HomePageState.muted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        height: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+class _StatProgressTile extends StatelessWidget {
+  const _StatProgressTile({
+    required this.label,
+    required this.value,
+    required this.progress,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final double progress;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: _HomePageState.muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 10,
+            backgroundColor: const Color(0xFF282828),
+            valueColor: AlwaysStoppedAnimation(color),
+          ),
+        ),
       ],
-    ),
-  );
+    );
+  }
+}
+
+class _DetailMetricCard extends StatelessWidget {
+  const _DetailMetricCard({
+    required this.title,
+    required this.value,
+    required this.subtext,
+  });
+
+  final String title;
+  final String value;
+  final String subtext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF222222),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF2A2A2A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: _HomePageState.muted, fontSize: 11)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 2),
+          Text(subtext, style: const TextStyle(color: _HomePageState.muted, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+}
+
+class _VolumeBreakdownRow extends StatelessWidget {
+  const _VolumeBreakdownRow({
+    required this.exercise,
+    required this.weight,
+    required this.percent,
+  });
+
+  final String exercise;
+  final String weight;
+  final String percent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              exercise,
+              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          Text(
+            weight,
+            style: const TextStyle(color: _HomePageState.gold, fontSize: 13, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF292929),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              percent,
+              style: const TextStyle(color: _HomePageState.muted, fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChallengeCard extends StatefulWidget {
+  // Active challenge card section of the home page
+  const _ChallengeCard();
+
+  @override
+  State<_ChallengeCard> createState() => _ChallengeCardState();
+}
+
+class _ChallengeCardState extends State<_ChallengeCard> {
+  int _userReps = 72;
+  final int _opponentReps = 64;
+  final int _targetReps = 100;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadChallengeFromSupabase();
+  }
+
+  Future<void> _loadChallengeFromSupabase() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      try {
+        final response = await Supabase.instance.client
+            .from('challenges')
+            .select('user_reps')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        if (response != null && response['user_reps'] != null) {
+          setState(() {
+            _userReps = (response['user_reps'] as num).toInt();
+          });
+        }
+      } catch (_) {
+        // Fallback gracefully
+      }
+    }
+  }
+
+  Future<void> _syncRepsToSupabase(int newReps) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      try {
+        await Supabase.instance.client.from('challenges').upsert({
+          'user_id': user.id,
+          'challenge_name': '100 Push-ups vs Rahul',
+          'user_reps': newReps,
+          'opponent_reps': _opponentReps,
+          'target_reps': _targetReps,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      } catch (_) {
+        // Fallback gracefully
+      }
+    }
+  }
+
+  void _showLogRepsModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF191919),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(22.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                const Icon(Icons.emoji_events, color: _HomePageState.gold, size: 24),
+                const SizedBox(width: 10),
+                const Text(
+                  'LOG CHALLENGE REPS',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: _HomePageState.muted),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '100 Push-ups vs Rahul • Current: $_userReps / $_targetReps reps',
+              style: const TextStyle(color: _HomePageState.muted, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                _RepIncrementBtn(
+                  label: '+5 REPS',
+                  onTap: () => _addReps(5, ctx),
+                ),
+                const SizedBox(width: 10),
+                _RepIncrementBtn(
+                  label: '+10 REPS',
+                  onTap: () => _addReps(10, ctx),
+                ),
+                const SizedBox(width: 10),
+                _RepIncrementBtn(
+                  label: '+20 REPS',
+                  onTap: () => _addReps(20, ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addReps(int count, BuildContext ctx) {
+    Navigator.of(ctx).pop();
+    final newReps = (_userReps + count).clamp(0, _targetReps);
+    setState(() {
+      _userReps = newReps;
+    });
+    _syncRepsToSupabase(newReps);
+    final isWon = _userReps >= _targetReps;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isWon
+              ? '🏆 CONGRATS! You completed 100 Push-ups and WON the challenge vs Rahul!'
+              : '⚡ Added +$count reps! You now have $_userReps / $_targetReps reps.',
+        ),
+        backgroundColor: const Color(0xFF2A2A2A),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final diff = _userReps - _opponentReps;
+    final progress = (_userReps / _targetReps).clamp(0.0, 1.0);
+    final remaining = _targetReps - _userReps;
+    final isWon = _userReps >= _targetReps;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(23, 22, 23, 22),
+      decoration: BoxDecoration(
+        color: _HomePageState.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isWon
+              ? _HomePageState.gold
+              : const Color(0xFF2B2B2B),
+          width: isWon ? 1.5 : 1.0,
+        ),
+        boxShadow: isWon
+            ? [
+                BoxShadow(
+                  color: _HomePageState.gold.withValues(alpha: 0.12),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                ),
+              ]
+            : const [BoxShadow(color: Colors.black54, blurRadius: 8)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.emoji_events_outlined,
+                color: _HomePageState.gold,
+                size: 18,
+              ),
+              const SizedBox(width: 7),
+              const Text(
+                'Active Challenge',
+                style: TextStyle(
+                  color: _HomePageState.muted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isWon
+                      ? const Color(0xFF1E5B22)
+                      : const Color(0xFF2B2412),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isWon
+                        ? Colors.green
+                        : _HomePageState.gold.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  isWon
+                      ? '🏆 VICTORY'
+                      : diff > 0
+                          ? '👑 LEADING BY $diff'
+                          : '⚡ TIED',
+                  style: TextStyle(
+                    color: isWon
+                        ? const Color(0xFF8FF596)
+                        : _HomePageState.gold,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '100 Push-ups',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: const [
+                        Text(
+                          'vs ',
+                          style: TextStyle(
+                            color: _HomePageState.muted,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          'Rahul',
+                          style: TextStyle(
+                            color: _HomePageState.gold,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          '• ⏳ 4h left',
+                          style: TextStyle(
+                            color: _HomePageState.muted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '$_userReps',
+                style: const TextStyle(
+                  color: _HomePageState.gold,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  ' vs $_opponentReps',
+                  style: const TextStyle(
+                    color: _HomePageState.muted,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 12,
+              backgroundColor: const Color(0xFF28251C),
+              valueColor: AlwaysStoppedAnimation(
+                isWon ? Colors.greenAccent : _HomePageState.gold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                isWon ? '100% Completed!' : '$remaining reps remaining',
+                style: TextStyle(
+                  color: isWon ? const Color(0xFF8FF596) : _HomePageState.muted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              InkWell(
+                onTap: _showLogRepsModal,
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2C2615),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: _HomePageState.gold.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, color: _HomePageState.gold, size: 14),
+                      SizedBox(width: 4),
+                      Text(
+                        'LOG REPS',
+                        style: TextStyle(
+                          color: _HomePageState.gold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RepIncrementBtn extends StatelessWidget {
+  const _RepIncrementBtn({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF2A2A2A),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: _HomePageState.gold.withValues(alpha: 0.3)),
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: _HomePageState.gold,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FriendsSection extends StatefulWidget {
+  // Friends training now section of the home page
+  const _FriendsSection();
+
+  @override
+  State<_FriendsSection> createState() => _FriendsSectionState();
+}
+
+class _FriendsSectionState extends State<_FriendsSection> {
+  List<Map<String, String>> _friends = [
+    {
+      'name': 'Rahul',
+      'workout': 'Leg Day',
+      'duration': '38m',
+      'detail': 'Set 4 of 6 • Heavy Barbell Squats',
+      'url': 'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=100&q=80',
+    },
+    {
+      'name': 'Arjun',
+      'workout': 'Cardio Run',
+      'duration': '24m',
+      'detail': '3.8 km completed • Pace: 4:55 /km',
+      'url': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80',
+    },
+    {
+      'name': 'Sneha',
+      'workout': 'Upper Body',
+      'duration': '15m',
+      'detail': 'Set 2 of 5 • Dumbbell Shoulder Press',
+      'url': 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&q=80',
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFriendsFromSupabase();
+  }
+
+  Future<void> _loadFriendsFromSupabase() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      try {
+        final response = await Supabase.instance.client
+            .from('friends')
+            .select()
+            .eq('user_id', user.id)
+            .eq('is_training', true);
+        setState(() {
+          _friends = List<Map<String, String>>.from(
+            response.map((f) => {
+                  'name': (f['name'] ?? 'Friend').toString(),
+                  'workout': (f['workout'] ?? 'Workout').toString(),
+                  'duration': (f['duration'] ?? 'Live').toString(),
+                  'detail': (f['detail'] ?? 'Active Session').toString(),
+                  'url': (f['avatar_url'] ??
+                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80')
+                      .toString(),
+                }),
+          );
+        });
+      } catch (_) {
+        // Fallback gracefully
+      }
+    }
+  }
+
+  void _showFriendCheerModal(
+    BuildContext context,
+    String name,
+    String workout,
+    String detail,
+    String duration,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF191919),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(22.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF19D65A),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x9919D65A),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$name IS TRAINING NOW',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: _HomePageState.muted),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF222222),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF2A2A2A)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.fitness_center,
+                    color: _HomePageState.gold,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          workout,
+                          style: const TextStyle(
+                            color: _HomePageState.gold,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          detail,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF292929),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '⏱ $duration',
+                      style: const TextStyle(
+                        color: _HomePageState.muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Send Live Cheer & Encouragement:',
+              style: TextStyle(
+                color: _HomePageState.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _CheerBtn(
+                  emoji: '🔥',
+                  label: 'High Five',
+                  onTap: () => _sendCheer(context, ctx, name, '🔥 High Five'),
+                ),
+                const SizedBox(width: 8),
+                _CheerBtn(
+                  emoji: '💪',
+                  label: 'Push Hard',
+                  onTap: () => _sendCheer(context, ctx, name, '💪 Push Hard'),
+                ),
+                const SizedBox(width: 8),
+                _CheerBtn(
+                  emoji: '⚡',
+                  label: 'Rival Boost',
+                  onTap: () => _sendCheer(context, ctx, name, '⚡ Rival Boost'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _sendCheer(
+    BuildContext context,
+    BuildContext modalCtx,
+    String name,
+    String cheerType,
+  ) {
+    Navigator.of(modalCtx).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('🎉 Sent $cheerType to $name!'),
+        backgroundColor: const Color(0xFF2A2A2A),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Text(
+                  'Friends Training Now',
+                  style: TextStyle(
+                    color: _HomePageState.muted,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _friends.isNotEmpty
+                      ? const Color(0xFF1E3A20)
+                      : const Color(0xFF2B2B2B),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _friends.isNotEmpty
+                        ? const Color(0xFF2E6332)
+                        : const Color(0xFF383838),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: _friends.isNotEmpty
+                            ? const Color(0xFF19D65A)
+                            : _HomePageState.muted,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${_friends.length} LIVE',
+                      style: TextStyle(
+                        color: _friends.isNotEmpty
+                            ? const Color(0xFF8FF596)
+                            : _HomePageState.muted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (_friends.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _HomePageState.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF262626)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.people_outline, color: _HomePageState.muted, size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'No Friends Training Live',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Invite friends to train together & track live workouts!',
+                          style: TextStyle(
+                            color: _HomePageState.muted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            SizedBox(
+              height: 82,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _friends.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final friend = _friends[index];
+                  return SizedBox(
+                    width: 165,
+                    child: _FriendCard(
+                      name: friend['name']!,
+                      workout: friend['workout']!,
+                      duration: friend['duration'] ?? 'Live',
+                      url: friend['url']!,
+                      onTap: () => _showFriendCheerModal(
+                        context,
+                        friend['name']!,
+                        friend['workout']!,
+                        friend['detail'] ?? 'Active Workout Session',
+                        friend['duration'] ?? 'Live',
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
+      );
+}
+
+class _CheerBtn extends StatelessWidget {
+  const _CheerBtn({
+    required this.emoji,
+    required this.label,
+    required this.onTap,
+  });
+
+  final String emoji;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF2A2A2A),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(
+                color: _HomePageState.gold.withValues(alpha: 0.3)),
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 18)),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: const TextStyle(
+                color: _HomePageState.gold,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FriendCard extends StatelessWidget {
+  const _FriendCard({
+    required this.name,
+    required this.workout,
+    required this.duration,
+    required this.url,
+    this.onTap,
+  });
+
+  final String name;
+  final String workout;
+  final String duration;
+  final String url;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            height: 76,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: _HomePageState.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF262626)),
+            ),
+            child: Row(
+              children: [
+                Stack(
+                  children: [
+                    _Photo(url: url, size: 36),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF19D65A),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: _HomePageState.surface, width: 1.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            duration,
+                            style: const TextStyle(
+                              color: _HomePageState.muted,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        workout,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _HomePageState.gold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 class _Photo extends StatelessWidget {

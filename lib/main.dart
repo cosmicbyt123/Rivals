@@ -28,7 +28,7 @@ Future<void> saveUserProfile(User user) async {     //
 Future<void> main() async {
   await Supabase.initialize(
     url: 'https://lyifcsjunlgwkarrzvra.supabase.co',
-    anonKey: 'sb_publishable_N-3Mi3r91ZAUnqdNrChxTA_sZhdLiv7',
+    publishableKey: 'sb_publishable_N-3Mi3r91ZAUnqdNrChxTA_sZhdLiv7',
   );
   runApp(MyApp());
 }
@@ -102,6 +102,7 @@ class MyApp extends StatelessWidget {     // This widget is the root of your app
       routes: {
         '/login': (_) => _loginPage(),
         '/signup': (_) => SignupPage(onSignUp: _handleSignUp),
+        '/home': (_) => const HomePage(),
         '/profile': (_) => const ProfilePage(),
       },
     );
