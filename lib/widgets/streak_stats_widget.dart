@@ -116,6 +116,7 @@ class _StreakStatsWidgetState extends State<StreakStatsWidget> {
 
     final stats = _stats!;
 
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
