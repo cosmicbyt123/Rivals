@@ -1,11 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+enum DayState { empty, current, done }
 
-enum DayState {
-  empty,
-  current,
-  done,
-}
 class StreakStats {
   final int currentStreak;
   final int longestStreak;
@@ -17,6 +13,20 @@ class StreakStats {
     required this.longestStreak,
     required this.totalWorkouts,
     required this.workoutsThisWeek,
+  });
+}
+
+class StreakSnapshot {
+  final int currentStreak;
+  final int longestStreak;
+  final int totalWorkouts;
+  final List<DateTime> recentActivityDates;
+
+  const StreakSnapshot({
+    required this.currentStreak,
+    required this.longestStreak,
+    required this.totalWorkouts,
+    required this.recentActivityDates,
   });
 }
 
@@ -44,9 +54,7 @@ class StreakService {
 
       final date = DateTime.parse(completedAt.toString()).toLocal();
 
-      workoutDates.add(
-        DateTime(date.year, date.month, date.day),
-      );
+      workoutDates.add(DateTime(date.year, date.month, date.day));
     }
 
     final sortedDates = workoutDates.toList()..sort();
@@ -120,10 +128,8 @@ class StreakService {
   DateTime _startOfWeek(DateTime date) {
     final dayOnly = _dateOnly(date);
 
-    // Monday = 1, Sunday = 7
-    return dayOnly.subtract(
-      Duration(days: dayOnly.weekday - 1),
-    );
+    // Sunday is the first day of the displayed week.
+    return dayOnly.subtract(Duration(days: dayOnly.weekday % 7));
   }
 
   DateTime _dateOnly(DateTime date) {
@@ -142,27 +148,60 @@ class StreakService {
   }
 
   List<String> getWeekDayLabels() {
-    return [
-      'Mon',
-      'Tue',
-      'Wed',
-      'Thu',
-      'Fri',
-      'Sat',
-      'Sun',
-    ];
+    return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   }
 
   Future<Object?> recordActivity({required String activityType}) async {
-    // Simulate an API call to record the activity
-    await Future.delayed(const Duration(milliseconds: 500));
-    return {'activityType': activityType};
-    
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw StateError('You must be signed in to log activity.');
+    }
+
+    return _supabase
+        .from('workout_sessions')
+        .insert({
+          'user_id': user.id,
+          'workout_name': activityType,
+          'status': 'completed',
+          'completed_at': DateTime.now().toIso8601String(),
+        })
+        .select()
+        .single();
   }
 
-  Future<Object?> getStreak() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    return null;
-  }
+  Future<StreakSnapshot> getStreak() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      return const StreakSnapshot(
+        currentStreak: 0,
+        longestStreak: 0,
+        totalWorkouts: 0,
+        recentActivityDates: [],
+      );
+    }
 
+    final response = await _supabase
+        .from('workout_sessions')
+        .select('completed_at')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .not('completed_at', 'is', null)
+        .order('completed_at', ascending: true);
+
+    final dates = <DateTime>{};
+    for (final row in response) {
+      final completedAt = row['completed_at'];
+      if (completedAt == null) continue;
+      final date = DateTime.parse(completedAt.toString()).toLocal();
+      dates.add(DateTime(date.year, date.month, date.day));
+    }
+
+    final sortedDates = dates.toList()..sort();
+    return StreakSnapshot(
+      currentStreak: _calculateCurrentStreak(sortedDates),
+      longestStreak: _calculateLongestStreak(sortedDates),
+      totalWorkouts: sortedDates.length,
+      recentActivityDates: sortedDates,
+    );
+  }
 }

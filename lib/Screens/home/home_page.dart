@@ -18,7 +18,7 @@ class _HomePageState extends State<HomePage> {
   int _selectedTab = 0;
   String _UserName = 'Wasim';
   String _avatarUrl = '';
-  int _notificationCount = 2;
+  final int _notificationCount = 2;
 
   static const gold = Color(0xFFFFC83D); // Gold color used in the UI
   static const background = Color(
@@ -85,7 +85,7 @@ class _HomePageState extends State<HomePage> {
             _Header(
               greeting: 'Good Morning',
               userName: _UserName,
-              avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&q=80',
+              avatarUrl: _avatarUrl,
               onNotificationTap: null,
               onNotificationCount: null,
               notificationCount: 0,
@@ -130,8 +130,8 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.center,
     children: [
-      const _Photo(
-        url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&q=80',
+      _Photo(
+        url: avatarUrl,
         size: 50,
       ), // User profile photo with a circular shape
       const SizedBox(width: 10), // Space between the photo and the text
@@ -189,7 +189,7 @@ class _StreakCard extends StatefulWidget {
 }
 
 class _StreakCardState extends State<_StreakCard> {
-  late Future<dynamic> _streakDataFuture;
+  late Future<StreakSnapshot> _streakDataFuture;
   late Future<List<DayState>> _dayStatesFuture;
   final StreakService _streakService = StreakService();
   bool _isLogging = false;
@@ -202,20 +202,19 @@ class _StreakCardState extends State<_StreakCard> {
 
   void _loadStreakData() {
     _streakDataFuture = _streakService.getStreak();
-    _dayStatesFuture = _loadWeekDayStates();
+    _dayStatesFuture = _streakDataFuture.then(_getWeekDayStates);
   }
 
-  Future<List<DayState>> _loadWeekDayStates() async {
-    final streakData = await _streakService.getStreak();
-    final activityDates = ((streakData as dynamic).recentActivityDates as Iterable?)
-            ?.map((date) => date is DateTime ? date : DateTime.parse(date.toString()))
-            .toSet() ??
-        <DateTime>{};
+  List<DayState> _getWeekDayStates(StreakSnapshot streakData) {
+    final activityDates = streakData.recentActivityDates.toSet();
     final today = DateTime.now();
     final startOfToday = DateTime(today.year, today.month, today.day);
+    final startOfWeek = startOfToday.subtract(
+      Duration(days: startOfToday.weekday % 7),
+    );
 
     return List.generate(7, (index) {
-      final date = startOfToday.subtract(Duration(days: 6 - index));
+      final date = startOfWeek.add(Duration(days: index));
       if (date == startOfToday) {
         return activityDates.contains(date) ? DayState.done : DayState.current;
       }
@@ -250,7 +249,11 @@ class _StreakCardState extends State<_StreakCard> {
             ),
             Row(
               children: [
-                const Icon(Icons.whatshot, color: Colors.orangeAccent, size: 26),
+                const Icon(
+                  Icons.whatshot,
+                  color: Colors.orangeAccent,
+                  size: 26,
+                ),
                 const SizedBox(width: 10),
                 const Text(
                   'LOG TODAY\'S STREAK',
@@ -298,8 +301,12 @@ class _StreakCardState extends State<_StreakCard> {
                 onPressed: () async {
                   Navigator.of(ctx).pop();
                   setState(() => _isLogging = true);
+                  var didLog = false;
                   try {
-                    await _streakService.recordActivity(activityType: 'Workout');
+                    await _streakService.recordActivity(
+                      activityType: 'Workout',
+                    );
+                    didLog = true;
                   } catch (_) {}
                   if (mounted) {
                     setState(() {
@@ -307,14 +314,21 @@ class _StreakCardState extends State<_StreakCard> {
                       _loadStreakData();
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('🔥 Boom! Today\'s Activity Logged! Streak Extended!'),
-                        backgroundColor: Color(0xFF2A2A2A),
+                      SnackBar(
+                        content: Text(
+                          didLog ? 'Today\'s activity was logged.' : 'Could not log activity. Check your connection.',
+                        ),
+                        backgroundColor: didLog
+                            ? const Color(0xFF2A2A2A)
+                            : Colors.red.shade800,
                       ),
                     );
                   }
                 },
-                icon: const Icon(Icons.local_fire_department, color: Colors.black),
+                icon: const Icon(
+                  Icons.local_fire_department,
+                  color: Colors.black,
+                ),
                 label: const Text(
                   'CLAIM & LOG WORKOUT',
                   style: TextStyle(
@@ -338,7 +352,7 @@ class _StreakCardState extends State<_StreakCard> {
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<dynamic>(
+  Widget build(BuildContext context) => FutureBuilder<StreakSnapshot>(
     future: _streakDataFuture,
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -358,7 +372,7 @@ class _StreakCardState extends State<_StreakCard> {
 
       final streakData =
           snapshot.data ??
-          _StreakDataFallback(
+          const StreakSnapshot(
             currentStreak: 0,
             longestStreak: 0,
             totalWorkouts: 0,
@@ -447,10 +461,7 @@ class _StreakCardState extends State<_StreakCard> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              '🔥 ',
-                              style: TextStyle(fontSize: 12),
-                            ),
+                            const Text('🔥 ', style: TextStyle(fontSize: 12)),
                             Text(
                               '${streakData.currentStreak} ${streakData.currentStreak == 1 ? 'Day' : 'Days'}',
                               style: const TextStyle(
@@ -594,20 +605,6 @@ class _ActivityOptionTile extends StatelessWidget {
   }
 }
 
-class _StreakDataFallback {
-  const _StreakDataFallback({
-    required this.currentStreak,
-    required this.longestStreak,
-    required this.totalWorkouts,
-    required this.recentActivityDates,
-  });
-
-  final int currentStreak;
-  final int longestStreak;
-  final int totalWorkouts;
-  final List<dynamic> recentActivityDates;
-}
-
 enum DayState { empty, current, done }
 
 class _Day extends StatelessWidget {
@@ -655,7 +652,11 @@ class _Day extends StatelessWidget {
           child: done
               ? const Icon(Icons.check, color: _HomePageState.gold, size: 18)
               : current
-              ? const Icon(Icons.local_fire_department, color: Colors.black, size: 18)
+              ? const Icon(
+                  Icons.local_fire_department,
+                  color: Colors.black,
+                  size: 18,
+                )
               : null,
         ),
       ],
@@ -700,7 +701,8 @@ class _TodayPlanState extends State<_TodayPlan> {
             .from('workout_sessions')
             .select()
             .eq('user_id', user.id)
-            .gte('completed_at', '$todayStr T00:00:00')
+            .eq('status', 'completed')
+            .gte('completed_at', '${todayStr}T00:00:00')
             .limit(1);
         if (response.isNotEmpty) {
           setState(() {
@@ -1209,30 +1211,30 @@ class _PlanPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-        decoration: BoxDecoration(
-          color: const Color(0x1E8A6800),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: const Color(0xFF493500), size: 17),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF493500),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+    decoration: BoxDecoration(
+      color: const Color(0x1E8A6800),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: const Color(0xFF493500), size: 17),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF493500),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
             ),
-          ],
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _StatsRow extends StatefulWidget {
@@ -1362,9 +1364,21 @@ class _StatsRowState extends State<_StatsRow> {
           ),
         ),
         const SizedBox(height: 10),
-        const _VolumeBreakdownRow(exercise: 'Barbell Bench Press', weight: '3,400 kg', percent: '40%'),
-        const _VolumeBreakdownRow(exercise: 'Overhead Press', weight: '2,800 kg', percent: '33%'),
-        const _VolumeBreakdownRow(exercise: 'Dips & Cable Iso', weight: '2,200 kg', percent: '27%'),
+        const _VolumeBreakdownRow(
+          exercise: 'Barbell Bench Press',
+          weight: '3,400 kg',
+          percent: '40%',
+        ),
+        const _VolumeBreakdownRow(
+          exercise: 'Overhead Press',
+          weight: '2,800 kg',
+          percent: '33%',
+        ),
+        const _VolumeBreakdownRow(
+          exercise: 'Dips & Cable Iso',
+          weight: '2,200 kg',
+          percent: '27%',
+        ),
       ];
     } else {
       title = 'EXPERIENCE (XP)';
@@ -1386,14 +1400,29 @@ class _StatsRowState extends State<_StatsRow> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF222222),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _HomePageState.gold.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: _HomePageState.gold.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Today\'s Gain', style: TextStyle(color: _HomePageState.muted, fontSize: 11)),
+                    const Text(
+                      'Today\'s Gain',
+                      style: TextStyle(
+                        color: _HomePageState.muted,
+                        fontSize: 11,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(_xpValue, style: const TextStyle(color: _HomePageState.gold, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text(
+                      _xpValue,
+                      style: const TextStyle(
+                        color: _HomePageState.gold,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1410,9 +1439,22 @@ class _StatsRowState extends State<_StatsRow> {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Streak Multiplier', style: TextStyle(color: _HomePageState.muted, fontSize: 11)),
+                    Text(
+                      'Streak Multiplier',
+                      style: TextStyle(
+                        color: _HomePageState.muted,
+                        fontSize: 11,
+                      ),
+                    ),
                     SizedBox(height: 4),
-                    Text('⚡ 1.5x Boost', style: TextStyle(color: Colors.amber, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      '⚡ 1.5x Boost',
+                      style: TextStyle(
+                        color: Colors.amber,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1487,40 +1529,40 @@ class _StatsRowState extends State<_StatsRow> {
 
   @override
   Widget build(BuildContext context) => Row(
-        children: [
-          Expanded(
-            child: _Stat(
-              icon: Icons.local_fire_department_outlined,
-              value: _kcalValue,
-              label: 'KCAL',
-              trend: '↑ 14%',
-              onTap: () => _showStatDetails(context, 'KCAL'),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _Stat(
-              icon: Icons.fitness_center,
-              value: _volumeValue,
-              label: 'VOLUME\n(KG)',
-              trend: '↑ 8%',
-              onTap: () => _showStatDetails(context, 'VOLUME'),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _Stat(
-              icon: Icons.star_border,
-              value: _xpValue,
-              label: 'XP',
-              goldValue: true,
-              trend: '⚡ 1.5x',
-              highlightBorder: true,
-              onTap: () => _showStatDetails(context, 'XP'),
-            ),
-          ),
-        ],
-      );
+    children: [
+      Expanded(
+        child: _Stat(
+          icon: Icons.local_fire_department_outlined,
+          value: _kcalValue,
+          label: 'KCAL',
+          trend: '↑ 14%',
+          onTap: () => _showStatDetails(context, 'KCAL'),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: _Stat(
+          icon: Icons.fitness_center,
+          value: _volumeValue,
+          label: 'VOLUME\n(KG)',
+          trend: '↑ 8%',
+          onTap: () => _showStatDetails(context, 'VOLUME'),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: _Stat(
+          icon: Icons.star_border,
+          value: _xpValue,
+          label: 'XP',
+          goldValue: true,
+          trend: '⚡ 1.5x',
+          highlightBorder: true,
+          onTap: () => _showStatDetails(context, 'XP'),
+        ),
+      ),
+    ],
+  );
 }
 
 class _Stat extends StatelessWidget {
@@ -1544,93 +1586,95 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 138,
+        padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
+        decoration: BoxDecoration(
+          color: _HomePageState.surface,
           borderRadius: BorderRadius.circular(12),
-          child: Container(
-            height: 138,
-            padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
-            decoration: BoxDecoration(
-              color: _HomePageState.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: highlightBorder
-                    ? _HomePageState.gold.withValues(alpha: 0.4)
-                    : const Color(0xFF262626),
-                width: highlightBorder ? 1.2 : 1.0,
-              ),
-              boxShadow: highlightBorder
-                  ? [
-                      BoxShadow(
-                        color: _HomePageState.gold.withValues(alpha: 0.08),
-                        blurRadius: 8,
-                        spreadRadius: 1,
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Stack(
-              children: [
-                if (trend != null)
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: goldValue
-                            ? const Color(0xFF382F10)
-                            : const Color(0xFF222C23),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        trend!,
-                        style: TextStyle(
-                          color: goldValue
-                              ? _HomePageState.gold
-                              : const Color(0xFF8FF596),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+          border: Border.all(
+            color: highlightBorder
+                ? _HomePageState.gold.withValues(alpha: 0.4)
+                : const Color(0xFF262626),
+            width: highlightBorder ? 1.2 : 1.0,
+          ),
+          boxShadow: highlightBorder
+              ? [
+                  BoxShadow(
+                    color: _HomePageState.gold.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : null,
+        ),
+        child: Stack(
+          children: [
+            if (trend != null)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: goldValue
+                        ? const Color(0xFF382F10)
+                        : const Color(0xFF222C23),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    trend!,
+                    style: TextStyle(
+                      color: goldValue
+                          ? _HomePageState.gold
+                          : const Color(0xFF8FF596),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, color: _HomePageState.gold, size: 22),
-                    const SizedBox(height: 8),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        value,
-                        style: TextStyle(
-                          color: goldValue ? _HomePageState.gold : Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
+                ),
+              ),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: _HomePageState.gold, size: 22),
+                const SizedBox(height: 8),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      color: goldValue ? _HomePageState.gold : Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: _HomePageState.muted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: _HomePageState.muted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
                 ),
               ],
             ),
-          ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _StatProgressTile extends StatelessWidget {
@@ -1710,11 +1754,24 @@ class _DetailMetricCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: _HomePageState.muted, fontSize: 11)),
+          Text(
+            title,
+            style: const TextStyle(color: _HomePageState.muted, fontSize: 11),
+          ),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(subtext, style: const TextStyle(color: _HomePageState.muted, fontSize: 10)),
+          Text(
+            subtext,
+            style: const TextStyle(color: _HomePageState.muted, fontSize: 10),
+          ),
         ],
       ),
     );
@@ -1741,12 +1798,20 @@ class _VolumeBreakdownRow extends StatelessWidget {
           Expanded(
             child: Text(
               exercise,
-              style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Text(
             weight,
-            style: const TextStyle(color: _HomePageState.gold, fontSize: 13, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              color: _HomePageState.gold,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(width: 10),
           Container(
@@ -1757,7 +1822,11 @@ class _VolumeBreakdownRow extends StatelessWidget {
             ),
             child: Text(
               percent,
-              style: const TextStyle(color: _HomePageState.muted, fontSize: 10, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: _HomePageState.muted,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -1849,7 +1918,11 @@ class _ChallengeCardState extends State<_ChallengeCard> {
             ),
             Row(
               children: [
-                const Icon(Icons.emoji_events, color: _HomePageState.gold, size: 24),
+                const Icon(
+                  Icons.emoji_events,
+                  color: _HomePageState.gold,
+                  size: 24,
+                ),
                 const SizedBox(width: 10),
                 const Text(
                   'LOG CHALLENGE REPS',
@@ -1930,9 +2003,7 @@ class _ChallengeCardState extends State<_ChallengeCard> {
         color: _HomePageState.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isWon
-              ? _HomePageState.gold
-              : const Color(0xFF2B2B2B),
+          color: isWon ? _HomePageState.gold : const Color(0xFF2B2B2B),
           width: isWon ? 1.5 : 1.0,
         ),
         boxShadow: isWon
@@ -1966,10 +2037,7 @@ class _ChallengeCardState extends State<_ChallengeCard> {
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: isWon
                       ? const Color(0xFF1E5B22)
@@ -1985,8 +2053,8 @@ class _ChallengeCardState extends State<_ChallengeCard> {
                   isWon
                       ? '🏆 VICTORY'
                       : diff > 0
-                          ? '👑 LEADING BY $diff'
-                          : '⚡ TIED',
+                      ? '👑 LEADING BY $diff'
+                      : '⚡ TIED',
                   style: TextStyle(
                     color: isWon
                         ? const Color(0xFF8FF596)
@@ -2094,7 +2162,10 @@ class _ChallengeCardState extends State<_ChallengeCard> {
                 onTap: _showLogRepsModal,
                 borderRadius: BorderRadius.circular(6),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF2C2615),
                     borderRadius: BorderRadius.circular(6),
@@ -2208,15 +2279,18 @@ class _FriendsSectionState extends State<_FriendsSection> {
             .eq('is_training', true);
         setState(() {
           _friends = List<Map<String, String>>.from(
-            response.map((f) => {
-                  'name': (f['name'] ?? 'Friend').toString(),
-                  'workout': (f['workout'] ?? 'Workout').toString(),
-                  'duration': (f['duration'] ?? 'Live').toString(),
-                  'detail': (f['detail'] ?? 'Active Session').toString(),
-                  'url': (f['avatar_url'] ??
-                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80')
-                      .toString(),
-                }),
+            response.map(
+              (f) => {
+                'name': (f['name'] ?? 'Friend').toString(),
+                'workout': (f['workout'] ?? 'Workout').toString(),
+                'duration': (f['duration'] ?? 'Live').toString(),
+                'detail': (f['detail'] ?? 'Active Session').toString(),
+                'url':
+                    (f['avatar_url'] ??
+                            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80')
+                        .toString(),
+              },
+            ),
           );
         });
       } catch (_) {
@@ -2264,10 +2338,7 @@ class _FriendsSectionState extends State<_FriendsSection> {
                     color: Color(0xFF19D65A),
                     shape: BoxShape.circle,
                     boxShadow: [
-                      BoxShadow(
-                        color: Color(0x9919D65A),
-                        blurRadius: 6,
-                      ),
+                      BoxShadow(color: Color(0x9919D65A), blurRadius: 6),
                     ],
                   ),
                 ),
@@ -2327,8 +2398,10 @@ class _FriendsSectionState extends State<_FriendsSection> {
                     ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF292929),
                       borderRadius: BorderRadius.circular(6),
@@ -2400,57 +2473,96 @@ class _FriendsSectionState extends State<_FriendsSection> {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
         children: [
-          Row(
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: Text(
-                  'Friends Training Now',
-                  style: TextStyle(
-                    color: _HomePageState.muted,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+          const Padding(
+            padding: EdgeInsets.only(left: 8),
+            child: Text(
+              'Friends Training Now',
+              style: TextStyle(
+                color: _HomePageState.muted,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _friends.isNotEmpty
-                      ? const Color(0xFF1E3A20)
-                      : const Color(0xFF2B2B2B),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: _friends.isNotEmpty
+                  ? const Color(0xFF1E3A20)
+                  : const Color(0xFF2B2B2B),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: _friends.isNotEmpty
+                    ? const Color(0xFF2E6332)
+                    : const Color(0xFF383838),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
                     color: _friends.isNotEmpty
-                        ? const Color(0xFF2E6332)
-                        : const Color(0xFF383838),
+                        ? const Color(0xFF19D65A)
+                        : _HomePageState.muted,
+                    shape: BoxShape.circle,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                const SizedBox(width: 5),
+                Text(
+                  '${_friends.length} LIVE',
+                  style: TextStyle(
+                    color: _friends.isNotEmpty
+                        ? const Color(0xFF8FF596)
+                        : _HomePageState.muted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 14),
+      if (_friends.isEmpty)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _HomePageState.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF262626)),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.people_outline, color: _HomePageState.muted, size: 24),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: _friends.isNotEmpty
-                            ? const Color(0xFF19D65A)
-                            : _HomePageState.muted,
-                        shape: BoxShape.circle,
+                    Text(
+                      'No Friends Training Live',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(width: 5),
+                    SizedBox(height: 2),
                     Text(
-                      '${_friends.length} LIVE',
+                      'Invite friends to train together & track live workouts!',
                       style: TextStyle(
-                        color: _friends.isNotEmpty
-                            ? const Color(0xFF8FF596)
-                            : _HomePageState.muted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
+                        color: _HomePageState.muted,
+                        fontSize: 11,
                       ),
                     ),
                   ],
@@ -2458,76 +2570,37 @@ class _FriendsSectionState extends State<_FriendsSection> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          if (_friends.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _HomePageState.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF262626)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.people_outline, color: _HomePageState.muted, size: 24),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'No Friends Training Live',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Invite friends to train together & track live workouts!',
-                          style: TextStyle(
-                            color: _HomePageState.muted,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
+        )
+      else
+        SizedBox(
+          height: 82,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _friends.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final friend = _friends[index];
+              return SizedBox(
+                width: 165,
+                child: _FriendCard(
+                  name: friend['name']!,
+                  workout: friend['workout']!,
+                  duration: friend['duration'] ?? 'Live',
+                  url: friend['url']!,
+                  onTap: () => _showFriendCheerModal(
+                    context,
+                    friend['name']!,
+                    friend['workout']!,
+                    friend['detail'] ?? 'Active Workout Session',
+                    friend['duration'] ?? 'Live',
                   ),
-                ],
-              ),
-            )
-          else
-            SizedBox(
-              height: 82,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _friends.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 10),
-                itemBuilder: (context, index) {
-                  final friend = _friends[index];
-                  return SizedBox(
-                    width: 165,
-                    child: _FriendCard(
-                      name: friend['name']!,
-                      workout: friend['workout']!,
-                      duration: friend['duration'] ?? 'Live',
-                      url: friend['url']!,
-                      onTap: () => _showFriendCheerModal(
-                        context,
-                        friend['name']!,
-                        friend['workout']!,
-                        friend['detail'] ?? 'Active Workout Session',
-                        friend['duration'] ?? 'Live',
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-        ],
-      );
+                ),
+              );
+            },
+          ),
+        ),
+    ],
+  );
 }
 
 class _CheerBtn extends StatelessWidget {
@@ -2551,8 +2624,7 @@ class _CheerBtn extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: BorderSide(
-                color: _HomePageState.gold.withValues(alpha: 0.3)),
+            side: BorderSide(color: _HomePageState.gold.withValues(alpha: 0.3)),
           ),
         ),
         child: Column(
@@ -2591,87 +2663,89 @@ class _FriendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        height: 76,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: _HomePageState.surface,
           borderRadius: BorderRadius.circular(10),
-          child: Container(
-            height: 76,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: _HomePageState.surface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFF262626)),
-            ),
-            child: Row(
+          border: Border.all(color: const Color(0xFF262626)),
+        ),
+        child: Row(
+          children: [
+            Stack(
               children: [
-                Stack(
-                  children: [
-                    _Photo(url: url, size: 36),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF19D65A),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                              color: _HomePageState.surface, width: 1.5),
-                        ),
+                _Photo(url: url, size: 36),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF19D65A),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _HomePageState.surface,
+                        width: 1.5,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              name,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            duration,
-                            style: const TextStyle(
-                              color: _HomePageState.muted,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        workout,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _HomePageState.gold,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        duration,
+                        style: const TextStyle(
+                          color: _HomePageState.muted,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    workout,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _HomePageState.gold,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _Photo extends StatelessWidget {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'Screens/auth/login_page.dart';
@@ -6,34 +7,40 @@ import 'Screens/auth/signup_page.dart';
 import 'Screens/home/home_page.dart';
 import 'Screens/profile/Profile_page.dart';
 
+final _navigatorKey = GlobalKey<NavigatorState>();
 
-
-final _navigatorKey = GlobalKey<NavigatorState>();    
-
-Future<void> saveUserProfile(User user) async {     //
+Future<void> saveUserProfile(User user) async {
+  //
   final email = user.email ?? '';
   final fullName = email.contains('@') ? email.split('@').first : 'User';
 
-  await Supabase.instance.client.from('profiles').upsert(
-    {
-      'id': user.id,
-      'email': email,
-      'full_name': fullName,
-    },
-    onConflict: 'id',
-  );
+  await Supabase.instance.client.from('profiles').upsert({
+    'id': user.id,
+    'email': email,
+    'full_name': fullName,
+  }, onConflict: 'id');
 }
 
-
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
+
+  final supabaseUrl = dotenv.env['SUPABASE_URL'];
+  final supabasePublishableKey = dotenv.env['SUPABASE_PUBLISHABLE_KEY'];
+
+  if (supabaseUrl == null || supabasePublishableKey == null) {
+    throw StateError('SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required.');
+  }
+
   await Supabase.initialize(
-    url: 'https://lyifcsjunlgwkarrzvra.supabase.co',
-    publishableKey: 'sb_publishable_N-3Mi3r91ZAUnqdNrChxTA_sZhdLiv7',
+    url: supabaseUrl,
+    publishableKey: supabasePublishableKey,
   );
   runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {     // This widget is the root of your application.
+class MyApp extends StatelessWidget {
+  // This widget is the root of your application.
   const MyApp({super.key});
 
   Future<void> _handleLogin(String email, String password) async {
@@ -74,7 +81,7 @@ class MyApp extends StatelessWidget {     // This widget is the root of your app
     return LoginPage(onLogin: _handleLogin);
   }
 
-  @override     // Build the main application widget with routing and theming.
+  @override // Build the main application widget with routing and theming.
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -90,7 +97,8 @@ class MyApp extends StatelessWidget {     // This widget is the root of your app
       home: StreamBuilder<AuthState>(
         stream: Supabase.instance.client.auth.onAuthStateChange,
         builder: (context, snapshot) {
-          final hasSession = Supabase.instance.client.auth.currentSession != null;
+          final hasSession =
+              Supabase.instance.client.auth.currentSession != null;
 
           if (hasSession) {
             return const HomePage();
